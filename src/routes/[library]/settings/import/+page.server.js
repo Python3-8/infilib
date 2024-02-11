@@ -1,9 +1,9 @@
 import { fail } from '@sveltejs/kit';
 import { response } from '$lib/serverHelpers.js';
 import Papa from 'papaparse';
-import { item } from '$lib/db.js';
+import { item, user } from '$lib/db.js';
 
-async function importItems(row, library_slug) {
+async function importItem(row, library_slug) {
 	let created = [];
 	try {
 		// Split values separated by slash and trim whitespace
@@ -63,11 +63,29 @@ async function importItems(row, library_slug) {
 	}
 	return created;
 }
+
+async function importUser(row) {
+	const {
+		Name: name,
+		"Email address": email_address,
+		Gender: gender,
+		"Phone number": phone_number,
+		"Date of birth": date_of_birth,
+	} = row;
+	try {
+		await user.create({ data: { name, email_address, gender, phone_number, date_of_birth } });
+	} catch (e) {
+		console.error(`Couldn't create the user ${email_address} due to the following error ${e}`);
+	}
+}
+
 export const actions = {
 	default: async ({ request, params }) => {
 		return response(async () => {
-			const { importFile } = Object.fromEntries(await request.formData());
-
+			const { importType, importFile } = Object.fromEntries(await request.formData());
+			if (!importType || !["i", "u"].contains(importType)) {
+				return fail(400, { incorrect: true, message: 'Import type not provided or invalid' });
+			}
 			if (!importFile?.name || importFile.name === 'undefined') {
 				return fail(400, {
 					incorrect: true,
@@ -79,10 +97,13 @@ export const actions = {
 				header: true,
 				transformHeader: (str) => str.trim(),
 				dynamicTyping: true,
-				step: async function ({ data, errors }, parser) {
-					const created = await importItems(data, params.library);
+				step: importType === "i" ? async function ({ data, errors }, _parser) {
+					await importItem(data, params.library);
 					if (errors.length) console.log('Row errors:', errors);
-				}
+				} : async function ({ data, errors }, _parser) {
+					await importUser(data);
+					if (errors.length) console.log('Row errors:', errors);
+				},
 			});
 		});
 	}

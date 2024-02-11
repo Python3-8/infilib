@@ -4,6 +4,11 @@
 </script>
 
 <form enctype="multipart/form-data" method="POST" use:enhance>
+	<label for="importType">What would you like to import?</label>
+	<select id="importType">
+		<option value="i">Items</option>
+		<option value="u">Users</option>
+	</select>
 	{#if $page.form?.incorrect}<p class="alert alert-danger">
 			The import failed: {$page.form.message}
 		</p>
